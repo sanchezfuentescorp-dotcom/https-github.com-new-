@@ -1,0 +1,12 @@
+Correcion y mejoras Proyecto Culinary 
+
+
+1- Centro de Costo
+2- Agregar semestre de carrera si no esta ya vigente 
+3- Plantilla ingredientes agregar formato de envasado
+4- abrir ingredientes por proveedores y por sucursal, ya sea viña o stgo
+5- agregar además de valores netos diferencia con valores brutos 
+6- Eliminar Profesor en general 
+7- agregar al archivo masivo Historial de Precios
+8- agregar a las ordenes de compra numero y formato mas realista y seleccionador de productos para emitir la OC. adicionalmente agregar listado con ordenes de compra emitidas. 
+9- 

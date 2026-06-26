@@ -1,0 +1,17 @@
+# Archivos temporales
+__pycache__/
+*.pyc
+*.pyo
+.claude/
+culinary_doc_unpacked/
+
+# Archivos grandes de datos (usar Supabase como fuente de verdad)
+erp_backup*.db
+
+# OS
+desktop.ini
+Thumbs.db
+.DS_Store
+
+.env
+.pa_token

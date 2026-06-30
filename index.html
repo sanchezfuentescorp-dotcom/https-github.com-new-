@@ -727,8 +727,8 @@ body.oc-printing #oc-print-doc{display:block!important}
   <div id="ses-vista-tabla">
   <div class="tw">
     <table>
-      <thead><tr><th class="sortable" onclick="sortTableBy('tb-ses',0,'str')">OP</th><th class="sortable" onclick="sortTableBy('tb-ses',1,'str')">Taller</th><th class="sortable" onclick="sortTableBy('tb-ses',2,'str')">Mes</th><th class="sortable" onclick="sortTableBy('tb-ses',3,'num')">Alumnos</th><th>Centro de Costo</th><th class="sortable" onclick="sortTableBy('tb-ses',5,'clp')">Costo Total</th><th class="sortable" onclick="sortTableBy('tb-ses',6,'clp')">Costo/Alumno</th><th></th></tr></thead>
-      <tbody id="tb-ses"><tr><td colspan="8" class="loading">Cargando...</td></tr></tbody>
+      <thead><tr><th class="sortable" onclick="sortTableBy('tb-ses',0,'str')">OP</th><th class="sortable" onclick="sortTableBy('tb-ses',1,'str')">Taller</th><th class="sortable" onclick="sortTableBy('tb-ses',2,'str')">Mes</th><th class="sortable" onclick="sortTableBy('tb-ses',3,'num')">Sección</th><th class="sortable" onclick="sortTableBy('tb-ses',4,'num')">Alumnos</th><th>Centro de Costo</th><th class="sortable" onclick="sortTableBy('tb-ses',6,'clp')">Costo Total</th><th class="sortable" onclick="sortTableBy('tb-ses',7,'clp')">Costo/Alumno</th><th></th></tr></thead>
+      <tbody id="tb-ses"><tr><td colspan="9" class="loading">Cargando...</td></tr></tbody>
     </table>
   </div>
   </div>
@@ -2313,11 +2313,12 @@ function renderSesFiltered(){
   const tb=document.getElementById('tb-ses');
   const _MESES_ES={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
   const _OP_PAT=/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/;
-  if(!ses.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><div class="ico">📅</div><p>Sin sesiones con estos filtros.</p></div></td></tr>';return;}
+  if(!ses.length){tb.innerHTML='<tr><td colspan="9"><div class="empty"><div class="ico">📅</div><p>Sin sesiones con estos filtros.</p></div></td></tr>';return;}
   tb.innerHTML=ses.map(s=>`<tr>
     <td class="mono" style="font-size:12px">${(s.cod_clase||'—').replace(_OP_PAT,'')}</td>
     <td><span class="badge" style="background:${hexAlpha(s.taller_color||'#555',.15)};color:${s.taller_color||'#555'}">${s.taller_codigo}</span></td>
     <td style="font-size:12px">${_MESES_ES[(s.fecha||'').slice(5,7)]||'—'}</td>
+    <td style="text-align:center;font-size:12px;font-weight:600">S${s.seccion||'—'}</td>
     <td>${s.num_alumnos}</td>
     <td style="font-size:12px;color:var(--muted)">${(D.cc||[]).find(c=>c.id===s.centro_costo_id)?.nombre||'—'}</td>
     <td class="clp">${clp(s.costo_total)}</td>

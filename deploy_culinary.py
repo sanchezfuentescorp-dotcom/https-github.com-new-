@@ -93,15 +93,27 @@ def git_commit_push():
         ['git', '-C', BASE_DIR, 'add', '-A'],
         ['git', '-C', BASE_DIR, 'commit', '-m', f'deploy {fecha}'],
         ['git', '-C', BASE_DIR, 'push', 'origin', 'master'],
-        ['git', '-C', BASE_DIR, 'push', 'sfcorp', 'master'],
-        ['git', '-C', BASE_DIR, 'push', 'sfcorp2', 'master'],
+    ]
+    sfcorp_token = os.getenv('SFCORP_GH_TOKEN', '')
+    sfcorp_repos = [
+        f'https://{sfcorp_token}@github.com/sanchezfuentescorp-dotcom/CULINARY_SYSTEM.git',
+        f'https://{sfcorp_token}@github.com/sanchezfuentescorp-dotcom/https-github.com-new-.git',
     ]
     for cmd in cmds:
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0 and 'nothing to commit' not in r.stdout + r.stderr:
             print(f'  Git: {(r.stdout or r.stderr).strip()[:120]}')
         elif 'master' in r.stdout + r.stderr:
-            print(f'  OK - pushed a GitHub ({cmd[4]})')
+            print(f'  OK - pushed a GitHub (origin)')
+    if sfcorp_token:
+        for url in sfcorp_repos:
+            r = subprocess.run(['git', '-C', BASE_DIR, 'push', url, 'master'],
+                               capture_output=True, text=True)
+            repo_name = url.split('/')[-1].replace('.git','')
+            if r.returncode != 0:
+                print(f'  SF Corp [{repo_name}]: {(r.stdout or r.stderr).strip()[:120]}')
+            else:
+                print(f'  OK - pushed a SF Corp ({repo_name})')
 
 if __name__ == '__main__':
     print('=' * 52)

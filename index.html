@@ -621,7 +621,10 @@ body.oc-printing #oc-print-doc{display:block!important}
 <div id="sec-ingredientes" class="sec">
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Maestro de Ingredientes</div><div class="ph-sub">Precios, unidades y categorías</div></div>
-    <button class="btn btn-dk" onclick="openIngModal()">+ Nuevo ingrediente</button>
+    <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportIngredientesXL()">📊 Excel</button>
+      <button class="btn btn-dk" onclick="openIngModal()">+ Nuevo ingrediente</button>
+    </div>
   </div>
   <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <input type="search" id="ing-search" placeholder="Buscar ingrediente..." style="padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;width:220px" oninput="ingPage=0;renderIngredientes()">
@@ -692,7 +695,10 @@ body.oc-printing #oc-print-doc{display:block!important}
 <div id="sec-talleres" class="sec">
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Tipos de Taller</div><div class="ph-sub">Costos calculados desde sesiones reales</div></div>
-    <button class="btn btn-dk" onclick="openTallerModal()">+ Nuevo tipo</button>
+    <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportTalleresXL()">📊 Excel</button>
+      <button class="btn btn-dk" onclick="openTallerModal()">+ Nuevo tipo</button>
+    </div>
   </div>
   <div class="tw">
     <table>
@@ -707,6 +713,7 @@ body.oc-printing #oc-print-doc{display:block!important}
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Sesiones de Clase</div><div class="ph-sub">Registro de clases con ingredientes y costos calculados</div></div>
     <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportSesionesXL()">📊 Excel</button>
       <button class="btn btn-o" id="btn-ses-cal" onclick="toggleSesVista()">📅 Calendario</button>
       <button class="btn btn-o" onclick="openPlantillasModal()">⭐ Plantillas</button>
       <button class="btn btn-dk" onclick="openSesModal()">+ Nueva sesión</button>
@@ -746,7 +753,10 @@ body.oc-printing #oc-print-doc{display:block!important}
 <div id="sec-inventario" class="sec">
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Inventario</div><div class="ph-sub">Stock actual de materias primas</div></div>
-    <button class="btn btn-dk" onclick="openInvModal()">+ Actualizar stock</button>
+    <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportInventarioXL()">📊 Excel</button>
+      <button class="btn btn-dk" onclick="openInvModal()">+ Actualizar stock</button>
+    </div>
   </div>
   <div class="tw">
     <table>
@@ -777,7 +787,10 @@ body.oc-printing #oc-print-doc{display:block!important}
 <div id="sec-carreras" class="sec">
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Carreras / Especialidades</div><div class="ph-sub">Costo total de materia prima por alumno</div></div>
-    <button class="btn btn-dk" onclick="openCarModal()">+ Nueva carrera</button>
+    <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportCarrerasXL()">📊 Excel</button>
+      <button class="btn btn-dk" onclick="openCarModal()">+ Nueva carrera</button>
+    </div>
   </div>
   <div class="tw">
     <table>
@@ -988,7 +1001,10 @@ body.oc-printing #oc-print-doc{display:block!important}
 <div id="sec-presupuesto" class="sec">
   <div class="ph">
     <div class="ph-l"><div class="ph-title">Presupuesto vs Real</div><div class="ph-sub">Compara costos planificados versus el gasto real de materia prima</div></div>
-    <button class="btn btn-dk" onclick="openPresModal()">+ Nuevo presupuesto</button>
+    <div class="flex-gap">
+      <button class="btn btn-o" onclick="exportPresupuestoXL()">📊 Excel</button>
+      <button class="btn btn-dk" onclick="openPresModal()">+ Nuevo presupuesto</button>
+    </div>
   </div>
   <div class="kpi-grid" id="pres-kpis" style="margin-bottom:18px;grid-template-columns:repeat(4,1fr)"></div>
   <div class="chart-grid" style="margin-bottom:16px">
@@ -2925,6 +2941,107 @@ async function exportarIngredientes(){
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Ingredientes');
   XLSX.writeFile(wb,`Culinary_Ingredientes_${new Date().toISOString().split('T')[0]}.xlsx`);
   toast('Ingredientes exportados',false,true);
+}
+
+// ═══════════════════════════════════════════════
+// EXPORTACIONES EXCEL POR MÓDULO
+// ═══════════════════════════════════════════════
+const CC_SANTIAGO = 'Santiago';
+function _wb(data, sheet, file){
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheet);
+  XLSX.writeFile(wb, `Culinary_${file}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${sheet} exportado`,false,true);
+}
+
+async function exportSesionesXL(){
+  if(!D.ses||!D.ses.length) D.ses=await GETALL('v_costo_sesion','order=fecha.desc');
+  const _MES={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
+  const OP_PAT=/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/;
+  _wb(D.ses.map(s=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'OP': (s.cod_clase||'').replace(OP_PAT,''),
+    'Código Sesión': s.cod_clase||'',
+    'Taller': s.taller_nombre||s.taller_codigo||'',
+    'Código Taller': s.taller_codigo||'',
+    'Mes': _MES[(s.fecha||'').slice(5,7)]||'',
+    'Sección': s.seccion ? `S${s.seccion}` : '',
+    'Alumnos': s.num_alumnos||0,
+    'Fecha': s.fecha||'',
+    'Costo Total ($)': Number(s.costo_total||0),
+    'Costo x Alumno ($)': Number(s.costo_por_alumno||0),
+  })), 'Sesiones', 'Sesiones');
+}
+
+async function exportTalleresXL(){
+  if(!D.vTall||!D.vTall.length){ await loadTalleres(); }
+  _wb((D.vTall||[]).map(t=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'Código': t.codigo||'',
+    'Taller': t.nombre||'',
+    'OPs únicas': t.ops?.length||0,
+    'Sesiones': t.num_sesiones||0,
+    'Total Alumnos': t.total_alumnos||0,
+    'Gasto Total ($)': Number(t.gasto_efectivo||0),
+    'Costo Prom x Alumno ($)': Number(t.costo_promedio_alumno||0),
+  })), 'Talleres', 'Talleres');
+}
+
+async function exportIngredientesXL(){
+  if(!D.ing||!D.ing.length) await loadIngredientes();
+  _wb(D.ing.map(i=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'Nombre': i.nombre||'',
+    'Código': i.codigo||'',
+    'Categoría': i.categoria?.nombre||'',
+    'Unidad': i.unidad||'',
+    'Precio Neto ($)': Number(i.costo_neto||0),
+    'Precio Bruto ($)': Math.round((i.costo_neto||0)*1.19),
+    'Proveedor': i.proveedor?.nombre||'',
+    'Activo': i.activo ? 'Sí' : 'No',
+  })), 'Ingredientes', 'Ingredientes');
+}
+
+async function exportInventarioXL(){
+  const inv = await GETALL('inventario','ingrediente_id,cantidad,mes,anio,ingrediente(nombre,unidad)').catch(()=>[]);
+  _wb(inv.map(i=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'Ingrediente': i.ingrediente?.nombre||'',
+    'Unidad': i.ingrediente?.unidad||'',
+    'Cantidad en Stock': Number(i.cantidad||0),
+    'Mes': i.mes||'',
+    'Año': i.anio||'',
+  })), 'Inventario', 'Inventario');
+}
+
+async function exportCarrerasXL(){
+  if(!D.vCar||!D.vCar.length) await loadCarreras();
+  _wb((D.vCar||[]).map(c=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'Carrera': c.nombre||'',
+    'Semestre': c.semestre||'',
+    'Overhead %': c.overhead_porcentaje||0,
+    'Módulos': c.num_modulos||0,
+    'Horas': c.duracion_horas||0,
+    'Costo Mat. Prima x Alumno ($)': Number(c.costo_materia_prima||0),
+    'Costo Total x Alumno ($)': Number(c.costo_total||0),
+  })), 'Carreras', 'Carreras');
+}
+
+async function exportPresupuestoXL(){
+  const pres = await GETALL('presupuesto','id,taller_tipo_id,monto_presupuestado,periodo,notas,taller_tipo(codigo,nombre)').catch(()=>[]);
+  if(!D.vTall||!D.vTall.length) await loadTalleres();
+  const tallMap = Object.fromEntries((D.vTall||[]).map(t=>[t.id,t]));
+  _wb(pres.map(p=>({
+    'Centro de Costo': CC_SANTIAGO,
+    'Taller': p.taller_tipo?.nombre||'',
+    'Código': p.taller_tipo?.codigo||'',
+    'Período': p.periodo||'',
+    'Presupuesto ($)': Number(p.monto_presupuestado||0),
+    'Gasto Real ($)': Number(tallMap[p.taller_tipo_id]?.gasto_efectivo||0),
+    'Diferencia ($)': Number(p.monto_presupuestado||0) - Number(tallMap[p.taller_tipo_id]?.gasto_efectivo||0),
+    'Notas': p.notas||'',
+  })), 'Presupuesto', 'Presupuesto');
 }
 
 // ═══════════════════════════════════════════════

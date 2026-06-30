@@ -2531,6 +2531,7 @@ async function loadModulos(){
     GET('modulo','order=nombre&select=*'),
     GET('modulo_taller','select=modulo_id,taller_tipo_id,num_sesiones,taller_tipo(codigo,nombre)')
   ]);
+  if(!D.ses||!D.ses.length){ try{D.ses=await GETALL('v_costo_sesion','order=fecha.desc');}catch{} }
   const tb=document.getElementById('tb-mod');
   if(!mods.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><div class="ico">📚</div><p>Sin semestres registrados.</p></div></td></tr>';return;}
   // Calcular alumnos únicos por sección para cada taller

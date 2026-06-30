@@ -62,7 +62,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:22px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
 .kpi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.kpi-value{font-size:28px;font-weight:800;margin-top:5px;color:var(--text)}
+.kpi-value{font-size:28px;font-weight:800;margin-top:5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-sub{font-size:11px;color:var(--muted);margin-top:3px}
 .kpi.accent{border-left:4px solid var(--gold-b)}
 
@@ -1725,7 +1725,13 @@ function navToSection(sec){
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
-const kpiSet = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+const kpiSet = (id, val) => {
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.textContent=val;
+  const len=(val||'').toString().length;
+  el.style.fontSize = len>12 ? '18px' : len>9 ? '22px' : '28px';
+};
 
 async function loadDash(){
   populateDashFilters();

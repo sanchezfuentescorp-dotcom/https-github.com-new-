@@ -1344,7 +1344,7 @@ body.oc-printing #oc-print-doc{display:block!important}
 
 <!-- Taller tipo -->
 <div class="overlay" id="ov-tall">
-<div class="modal">
+<div class="modal" style="max-width:580px">
   <h2 id="tall-m-title">Nuevo Tipo de Taller</h2>
   <input type="hidden" id="tall-id">
   <div class="frow">
@@ -1354,6 +1354,13 @@ body.oc-printing #oc-print-doc{display:block!important}
   <div class="frow">
     <div class="fg"><label>Descripción</label><input type="text" id="tall-desc" placeholder="Breve descripción"></div>
     <div class="fg"><label>Color (HEX)</label><input type="color" id="tall-color" value="#3b82f6" style="height:38px"></div>
+  </div>
+  <div style="margin-top:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="sub-lbl" style="margin:0">Sub-talleres / OPs</div>
+      <button class="add-row-btn" onclick="addOpRow()">+ Agregar OP</button>
+    </div>
+    <div id="tall-op-list" style="display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;padding-right:2px"></div>
   </div>
   <div class="m-actions">
     <button class="btn btn-o" onclick="closeModal('ov-tall')">Cancelar</button>
@@ -2162,10 +2169,38 @@ async function loadTalleres(){
     </td></tr>`).join('');
 }
 
+function addOpRow(codigo='', opId=null){
+  const el=document.createElement('div');
+  el.className='rel-row';
+  el.dataset.opId=opId||'';
+  el.innerHTML=`
+    <input type="text" value="${codigo}" placeholder="Ej: TICSES1" maxlength="30"
+      style="flex:1;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;background:var(--surface);color:var(--text);text-transform:uppercase"
+      oninput="this.value=this.value.toUpperCase()">
+    <button class="btn-ic" title="Eliminar" onclick="this.closest('.rel-row').remove()">🗑️</button>`;
+  document.getElementById('tall-op-list').appendChild(el);
+  el.querySelector('input').focus();
+}
+
+async function loadOpRows(talId){
+  document.getElementById('tall-op-list').innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px">Cargando...</div>';
+  try{
+    const ops=await GET('taller_op',`taller_tipo_id=eq.${talId}&order=orden,codigo&select=id,codigo`);
+    document.getElementById('tall-op-list').innerHTML='';
+    if(!ops.length){
+      document.getElementById('tall-op-list').innerHTML='<div style="font-size:12px;color:var(--muted);padding:4px 0">Sin OPs — usa "+ Agregar OP" para definir los sub-talleres.</div>';
+      return;
+    }
+    ops.forEach(op=>addOpRow(op.codigo, op.id));
+  }catch{document.getElementById('tall-op-list').innerHTML='';}
+}
+
 function openTallerModal(t=null){
   sv('tall-id',t?.id);sv('tall-cod',t?.codigo);sv('tall-nom',t?.nombre);
   sv('tall-desc',t?.descripcion);sv('tall-color',t?.color||'#3b82f6');
   document.getElementById('tall-m-title').textContent=t?'Editar Taller':'Nuevo Tipo de Taller';
+  document.getElementById('tall-op-list').innerHTML='';
+  if(t?.id) loadOpRows(t.id);
   openModal('ov-tall');
 }
 async function editTaller(id){
@@ -2173,43 +2208,65 @@ async function editTaller(id){
   openTallerModal(tall);
 }
 async function saveTaller(){
-  const id=v('tall-id');
+  const talId=v('tall-id');
   const d={codigo:v('tall-cod').trim().toUpperCase(),nombre:v('tall-nom').trim(),
     descripcion:v('tall-desc')||null,color:v('tall-color')};
   if(!d.codigo||!d.nombre) return toast('Ingresa código y nombre',true);
-  try{id?await PATCH('taller_tipo',id,d):await POST('taller_tipo',d);
+  try{
+    let savedId=talId;
+    if(talId) await PATCH('taller_tipo',talId,d);
+    else{const r=await POST('taller_tipo',d);savedId=r[0]?.id;}
+    // Guardar OPs: borrar existentes y reinsertar
+    const rows=[...document.querySelectorAll('#tall-op-list .rel-row')];
+    const ops=rows.map(r=>r.querySelector('input').value.trim().toUpperCase()).filter(Boolean);
+    if(savedId){
+      await DELW('taller_op','taller_tipo_id',savedId);
+      for(let i=0;i<ops.length;i++)
+        await POST('taller_op',{taller_tipo_id:+savedId,codigo:ops[i],orden:i});
+    }
     closeModal('ov-tall');toast('Guardado',false,true);
-    D.tall=await GET('taller_tipo','order=codigo');loadTalleres();}
-  catch(e){toast('Error: '+e.message,true);}
+    D.tall=await GET('taller_tipo','order=codigo');loadTalleres();
+  }catch(e){toast('Error: '+e.message,true);}
 }
 
-function showOPs(talId,talCod,talNom){
-  const t=D.vTall.find(x=>x.id===talId);
-  const ops=(t?.ops||[]).sort();
-  // Build aggregated stats per OP from D.ses
+async function showOPs(talId,talCod,talNom){
+  document.getElementById('ops-modal-title').textContent=`OPs de ${talCod} – ${talNom}`;
+  document.getElementById('ops-modal-body').innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px">Cargando...</div>';
+  openModal('ov-ops');
+  const ops=await GET('taller_op',`taller_tipo_id=eq.${talId}&order=orden,codigo&select=id,codigo,descripcion`).catch(()=>[]);
+  // Stats desde sesiones
   const opStats={};
   (D.ses||[]).forEach(s=>{
-    const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
     if(s.taller_codigo!==talCod) return;
-    if(!opStats[op]) opStats[op]={sesiones:0,alumnos:new Set(),gasto:0};
+    const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
+    if(!opStats[op]) opStats[op]={sesiones:0,gasto:0};
     opStats[op].sesiones++;
-    opStats[op].alumnos.add(`${s.cod_clase}`);
     opStats[op].gasto+=Number(s.costo_total||0)*Number(s.num_alumnos||0);
   });
-  const rows=ops.map(op=>{
-    const st=opStats[op]||{sesiones:0,alumnos:new Set(),gasto:0};
-    return `<tr><td><strong>${op}</strong></td><td>${st.sesiones}</td><td class="clp">${clp(st.gasto)}</td></tr>`;
-  }).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--muted)">Sin OPs registradas</td></tr>';
-  // Use a generic info modal
-  const html=`<div style="max-height:60vh;overflow-y:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="background:var(--surface-2)"><th style="padding:8px;text-align:left">OP / Sub-taller</th><th style="padding:8px;text-align:center">Sesiones</th><th style="padding:8px;text-align:right">Gasto Efectivo</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </div>`;
-  document.getElementById('ops-modal-title').textContent=`OPs de ${talCod} – ${talNom}`;
-  document.getElementById('ops-modal-body').innerHTML=html;
-  openModal('ov-ops');
+  const rows=ops.length
+    ? ops.map(op=>{
+        const st=opStats[op.codigo]||{sesiones:0,gasto:0};
+        return `<tr>
+          <td><strong>${op.codigo}</strong>${op.descripcion?`<br><span style="font-size:11px;color:var(--muted)">${op.descripcion}</span>`:''}</td>
+          <td style="text-align:center">${st.sesiones||'—'}</td>
+          <td style="text-align:right">${st.gasto>0?clp(st.gasto):'—'}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">Sin OPs definidas — edita el taller para agregarlas.</td></tr>';
+  document.getElementById('ops-modal-body').innerHTML=`
+    <div style="max-height:55vh;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:var(--surface-2)">
+          <th style="padding:8px 10px;text-align:left">OP / Sub-taller</th>
+          <th style="padding:8px 10px;text-align:center">Sesiones</th>
+          <th style="padding:8px 10px;text-align:right">Gasto Efectivo</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn btn-o" style="font-size:12px" onclick="closeModal('ov-ops');editTaller(${talId})">✏️ Editar OPs</button>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════

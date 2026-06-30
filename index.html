@@ -696,7 +696,7 @@ body.oc-printing #oc-print-doc{display:block!important}
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>Código</th><th>Taller</th><th>OPs</th><th>Total Alumnos</th><th>Costo Total</th><th>Costo Prom/Alumno</th><th></th></tr></thead>
+      <thead><tr><th>Código</th><th>Taller</th><th>OPs</th><th>Total Alumnos</th><th>Gasto Efectivo (×alumnos)</th><th>Costo Prom/Alumno</th><th></th></tr></thead>
       <tbody id="tb-tall"><tr><td colspan="7" class="loading">Cargando...</td></tr></tbody>
     </table>
   </div>
@@ -798,8 +798,8 @@ body.oc-printing #oc-print-doc{display:block!important}
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>Semestre</th><th>Descripción</th><th>Horas</th><th>Talleres asignados</th><th></th></tr></thead>
-      <tbody id="tb-mod"><tr><td colspan="5"><div class="sec-loading"><span class="spinner"></span>Cargando...</div></td></tr></tbody>
+      <thead><tr><th>Semestre</th><th>Descripción</th><th>Horas</th><th>Total Alumnos</th><th>Talleres asignados</th><th></th></tr></thead>
+      <tbody id="tb-mod"><tr><td colspan="6"><div class="sec-loading"><span class="spinner"></span>Cargando...</div></td></tr></tbody>
     </table>
   </div>
 </div>
@@ -1361,6 +1361,16 @@ body.oc-printing #oc-print-doc{display:block!important}
   </div>
 </div></div>
 
+<!-- OPs modal -->
+<div class="overlay" id="ov-ops">
+<div class="modal" style="max-width:560px">
+  <h2 id="ops-modal-title">OPs del Taller</h2>
+  <div id="ops-modal-body"></div>
+  <div class="m-actions">
+    <button class="btn btn-dk" onclick="closeModal('ov-ops')">Cerrar</button>
+  </div>
+</div></div>
+
 <!-- Sesión -->
 <div class="overlay" id="ov-ses">
 <div class="modal modal-lg">
@@ -1673,7 +1683,7 @@ const KPI_CONFIG = [
   { id:'k-ses',      label:'OPs',                   sub:'órdenes de producto',     accent:'',    icon:'📋', navTo:'sesiones' },
   { id:'k-alumnos',  label:'Total alumnos',         sub:'matrículas por taller',   accent:'',    icon:'👥', navTo:'sesiones' },
   { id:'k-cpa',      label:'Costo prom/alumno',     sub:'promedio todas las clases',accent:'gold',icon:'💰', navTo:'sesiones' },
-  { id:'k-costo-mp', label:'Gasto mat. prima',      sub:'total acumulado',         accent:'gold',icon:'📊', navTo:'sesiones' },
+  { id:'k-costo-mp', label:'Gasto mat. prima',      sub:'ingredientes × alumnos',  accent:'gold',icon:'📊', navTo:'sesiones' },
   { id:'k-car',      label:'Carreras',              sub:'programas activos',       accent:'',    icon:'🎓', navTo:'carreras' },
   { id:'k-modulos',  label:'Semestres',              sub:'en todos los programas',  accent:'',    icon:'📚', navTo:'modulos' },
   // ── Agregar nuevos KPIs aquí ────────────────────────────────────────
@@ -1745,7 +1755,7 @@ async function loadDash(){
     const cpas   = sesFilt.filter(s=>s.num_alumnos>0).map(s=>Number(s.costo_por_alumno));
     const avgCpa = cpas.length ? cpas.reduce((a,b)=>a+b,0)/cpas.length : 0;
     kpiSet('k-cpa', clp(avgCpa));
-    const costoMP = sesFilt.reduce((s,x)=>s+Number(x.costo_total||0), 0);
+    const costoMP = sesFilt.reduce((s,x)=>s+Number(x.costo_total||0)*Number(x.num_alumnos||0), 0);
     kpiSet('k-costo-mp', clp(costoMP));
 
     try{
@@ -1760,7 +1770,7 @@ async function loadDash(){
           const sesAnt=ses.filter(s=>(s.fecha||'').startsWith(mesPrev));
           const cpasAnt=sesAnt.filter(s=>s.num_alumnos>0).map(s=>Number(s.costo_por_alumno));
           const avgCpaAnt=cpasAnt.length?cpasAnt.reduce((a,b)=>a+b,0)/cpasAnt.length:0;
-          const costoMPAnt=sesAnt.reduce((s,x)=>s+Number(x.costo_total||0),0);
+          const costoMPAnt=sesAnt.reduce((s,x)=>s+Number(x.costo_total||0)*Number(x.num_alumnos||0),0);
           kpiTrend('k-cpa',avgCpa,avgCpaAnt);
           kpiTrend('k-costo-mp',costoMP,costoMPAnt);
         } else { kpiClearTrend('k-cpa'); kpiClearTrend('k-costo-mp'); }
@@ -2126,23 +2136,26 @@ async function loadTalleres(){
   const agg={};
   (D.ses||[]).forEach(s=>{
     const k=s.taller_codigo;
-    if(!agg[k]) agg[k]={num_sesiones:0,total_alumnos:0,costo_total:0};
+    if(!agg[k]) agg[k]={num_sesiones:0,total_alumnos:0,costo_total:0,gasto_efectivo:0,ops:new Set()};
     agg[k].num_sesiones++;
     agg[k].total_alumnos+=Number(s.num_alumnos||0);
     agg[k].costo_total+=Number(s.costo_total||0);
+    agg[k].gasto_efectivo+=Number(s.costo_total||0)*Number(s.num_alumnos||0);
+    const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
+    if(op) agg[k].ops.add(op);
   });
   D.vTall=(D.tall||[]).map(t=>{
-    const a=agg[t.codigo]||{num_sesiones:0,total_alumnos:0,costo_total:0};
-    return {...t, ...a, costo_promedio_alumno: a.total_alumnos>0 ? a.costo_total/a.total_alumnos : 0};
-  }).sort((x,y)=>y.costo_promedio_alumno-x.costo_promedio_alumno);
+    const a=agg[t.codigo]||{num_sesiones:0,total_alumnos:0,costo_total:0,gasto_efectivo:0,ops:new Set()};
+    return {...t,...a,ops:[...a.ops],costo_promedio_alumno:a.total_alumnos>0?a.gasto_efectivo/a.total_alumnos:0};
+  }).sort((x,y)=>y.gasto_efectivo-x.gasto_efectivo);
   const tb=document.getElementById('tb-tall');
   if(!D.vTall.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="ico">👨‍🍳</div><p>Sin talleres.</p></div></td></tr>';return;}
   tb.innerHTML=D.vTall.map(t=>`<tr>
     <td><span class="badge" style="background:${hexAlpha(t.color||'#555',.15)};color:${t.color||'#555'}">${t.codigo}</span></td>
     <td><strong>${t.nombre}</strong></td>
-    <td>${t.num_sesiones}</td>
-    <td>${t.total_alumnos}</td>
-    <td class="clp">${clp(t.costo_total)}</td>
+    <td>${t.ops?.length||0} <button class="btn-ic" title="Ver OPs" onclick="showOPs(${t.id},'${t.codigo}','${t.nombre.replace(/'/g,'')}')">📋</button></td>
+    <td>${t.total_alumnos.toLocaleString('es-CL')}</td>
+    <td class="clp">${clp(t.gasto_efectivo)}</td>
     <td class="clp cost-highlight">${clp(t.costo_promedio_alumno)}</td>
     <td class="flex-gap">
       <button class="btn-ic" onclick="editTaller(${t.id})">✏️</button>
@@ -2168,6 +2181,35 @@ async function saveTaller(){
     closeModal('ov-tall');toast('Guardado',false,true);
     D.tall=await GET('taller_tipo','order=codigo');loadTalleres();}
   catch(e){toast('Error: '+e.message,true);}
+}
+
+function showOPs(talId,talCod,talNom){
+  const t=D.vTall.find(x=>x.id===talId);
+  const ops=(t?.ops||[]).sort();
+  // Build aggregated stats per OP from D.ses
+  const opStats={};
+  (D.ses||[]).forEach(s=>{
+    const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
+    if(s.taller_codigo!==talCod) return;
+    if(!opStats[op]) opStats[op]={sesiones:0,alumnos:new Set(),gasto:0};
+    opStats[op].sesiones++;
+    opStats[op].alumnos.add(`${s.cod_clase}`);
+    opStats[op].gasto+=Number(s.costo_total||0)*Number(s.num_alumnos||0);
+  });
+  const rows=ops.map(op=>{
+    const st=opStats[op]||{sesiones:0,alumnos:new Set(),gasto:0};
+    return `<tr><td><strong>${op}</strong></td><td>${st.sesiones}</td><td class="clp">${clp(st.gasto)}</td></tr>`;
+  }).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--muted)">Sin OPs registradas</td></tr>';
+  // Use a generic info modal
+  const html=`<div style="max-height:60vh;overflow-y:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--surface-2)"><th style="padding:8px;text-align:left">OP / Sub-taller</th><th style="padding:8px;text-align:center">Sesiones</th><th style="padding:8px;text-align:right">Gasto Efectivo</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+  document.getElementById('ops-modal-title').textContent=`OPs de ${talCod} – ${talNom}`;
+  document.getElementById('ops-modal-body').innerHTML=html;
+  openModal('ov-ops');
 }
 
 // ═══════════════════════════════════════════════
@@ -2490,14 +2532,29 @@ async function loadModulos(){
     GET('modulo_taller','select=modulo_id,taller_tipo_id,num_sesiones,taller_tipo(codigo,nombre)')
   ]);
   const tb=document.getElementById('tb-mod');
-  if(!mods.length){tb.innerHTML='<tr><td colspan="5"><div class="empty"><div class="ico">📚</div><p>Sin semestres registrados.</p></div></td></tr>';return;}
+  if(!mods.length){tb.innerHTML='<tr><td colspan="6"><div class="empty"><div class="ico">📚</div><p>Sin semestres registrados.</p></div></td></tr>';return;}
+  // Calcular alumnos únicos por sección para cada taller
+  const tallAlumnos={};
+  (D.ses||[]).forEach(s=>{
+    const k=s.taller_codigo;
+    if(!tallAlumnos[k]) tallAlumnos[k]={};
+    const secMatch=(s.cod_clase||'').match(/-S(\d+)/);
+    const sec=secMatch?secMatch[1]:'0';
+    if(!tallAlumnos[k][sec]) tallAlumnos[k][sec]=0;
+    tallAlumnos[k][sec]=Math.max(tallAlumnos[k][sec],Number(s.num_alumnos||0));
+  });
   tb.innerHTML=mods.map(m=>{
     const talls=mt.filter(t=>t.modulo_id===m.id);
+    const alumnos=talls.reduce((sum,t)=>{
+      const secs=tallAlumnos[t.taller_tipo?.codigo]||{};
+      return sum+Object.values(secs).reduce((a,b)=>a+b,0);
+    },0);
     const tallStr=talls.length?talls.map(t=>`<span class="badge b-blue" style="margin:1px">${t.taller_tipo?.codigo} <span style="opacity:.7">×${t.num_sesiones}</span></span>`).join(''):'<span class="badge b-gray">Sin talleres</span>';
     return `<tr>
       <td><strong>${m.nombre}</strong></td>
       <td style="font-size:12px;color:var(--muted)">${m.descripcion||'—'}</td>
       <td>${m.horas} hrs</td>
+      <td><strong>${alumnos>0?alumnos.toLocaleString('es-CL'):'—'}</strong></td>
       <td>${tallStr}</td>
       <td class="flex-gap">
         <button class="btn-ic admin-only" onclick="editModulo(${m.id})">✏️</button>
@@ -3813,7 +3870,7 @@ async function loadPresupuesto(){
 function renderPresupuesto(){
   // KPIs
   const totalPres=D_pres.reduce((s,p)=>s+Number(p.monto_presupuestado),0);
-  const tallMap=Object.fromEntries(D.vTall.map(t=>[t.id,Number(t.costo_total)]));
+  const tallMap=Object.fromEntries(D.vTall.map(t=>[t.id,Number(t.gasto_efectivo)]));
   const totalReal=D_pres.reduce((s,p)=>s+(tallMap[p.taller_tipo_id]||0),0);
   const delta=totalReal-totalPres;
   document.getElementById('pres-kpis').innerHTML=`
@@ -3846,7 +3903,7 @@ function renderPresupuesto(){
 function renderPresCharts(){
   destroyChart('pres');destroyChart('dev');
   if(!D_pres.length) return;
-  const tallMap=Object.fromEntries(D.vTall.map(t=>[t.id,Number(t.costo_total)]));
+  const tallMap=Object.fromEntries(D.vTall.map(t=>[t.id,Number(t.gasto_efectivo)]));
   const labels=D_pres.map(p=>p.taller_tipo?.codigo||'—');
   const pres=D_pres.map(p=>Number(p.monto_presupuestado));
   const real=D_pres.map(p=>tallMap[p.taller_tipo_id]||0);

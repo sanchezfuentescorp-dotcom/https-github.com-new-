@@ -1768,7 +1768,7 @@ async function loadDash(){
     const cpas   = sesFilt.filter(s=>s.num_alumnos>0).map(s=>Number(s.costo_por_alumno));
     const avgCpa = cpas.length ? cpas.reduce((a,b)=>a+b,0)/cpas.length : 0;
     kpiSet('k-cpa', clp(avgCpa));
-    const costoMP = sesFilt.reduce((s,x)=>s+Number(x.costo_total||0)*Number(x.num_alumnos||0), 0);
+    const costoMP = sesFilt.reduce((s,x)=>s+Number(x.costo_total||0), 0);
     kpiSet('k-costo-mp', clp(costoMP));
 
     try{
@@ -1783,7 +1783,7 @@ async function loadDash(){
           const sesAnt=ses.filter(s=>(s.fecha||'').startsWith(mesPrev));
           const cpasAnt=sesAnt.filter(s=>s.num_alumnos>0).map(s=>Number(s.costo_por_alumno));
           const avgCpaAnt=cpasAnt.length?cpasAnt.reduce((a,b)=>a+b,0)/cpasAnt.length:0;
-          const costoMPAnt=sesAnt.reduce((s,x)=>s+Number(x.costo_total||0)*Number(x.num_alumnos||0),0);
+          const costoMPAnt=sesAnt.reduce((s,x)=>s+Number(x.costo_total||0),0);
           kpiTrend('k-cpa',avgCpa,avgCpaAnt);
           kpiTrend('k-costo-mp',costoMP,costoMPAnt);
         } else { kpiClearTrend('k-cpa'); kpiClearTrend('k-costo-mp'); }
@@ -2153,7 +2153,7 @@ async function loadTalleres(){
     agg[k].num_sesiones++;
     agg[k].total_alumnos+=Number(s.num_alumnos||0);
     agg[k].costo_total+=Number(s.costo_total||0);
-    agg[k].gasto_efectivo+=Number(s.costo_total||0)*Number(s.num_alumnos||0);
+    agg[k].gasto_efectivo+=Number(s.costo_total||0);
     const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
     if(op) agg[k].ops.add(op);
   });
@@ -2247,7 +2247,7 @@ async function showOPs(talId,talCod,talNom){
     const op=(s.cod_clase||'').replace(/-(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)-S\d+(-\d+)?$/,'');
     if(!opStats[op]) opStats[op]={sesiones:0,gasto:0};
     opStats[op].sesiones++;
-    opStats[op].gasto+=Number(s.costo_total||0)*Number(s.num_alumnos||0);
+    opStats[op].gasto+=Number(s.costo_total||0);
   });
   const rows=ops.length
     ? ops.map(op=>{
